@@ -3986,28 +3986,32 @@ def update_fields_in_doctypes(data):
 
 def get_json_file(file_name, folder):
     """
-    Get the JSON file.
+    Load and return JSON data from a file in the specified folder.
+
     Args:
-        file_name (str): The name of the JSON file located in the 'workflow' folder.
-    Return:
-        dict: The JSON data loaded from the file.
-    Raises:
-        frappe.throw: If the file is not a .json file or the file is not found.
+        file_name (str): The name of the JSON file (must end with `.json`).
+        folder (str): The absolute path to the folder containing the JSON file.
+
+    Returns:
+        dict: Parsed JSON data from the file.
     """
     data = {}
     if not file_name.endswith(".json"):
-        frappe.error_log("Only JSON files are allowed")
+        frappe.log_error("Only JSON files are allowed. Please ensure the file ends with '.json'.")
 
     file_path = os.path.join(folder, file_name)
+
     if not os.path.isfile(file_path):
-        frappe.error_log(f"File not found: {file_path}")
+        frappe.log_error(f"File not found: {file_path}")
 
     try:
         with open(file_path, "r") as f:
             data = json.load(f)
+
     except json.JSONDecodeError as e:
-        frappe.error_log(f"Invalid JSON format in {file_path}: {str(e)}")
+        frappe.log_error(f"Invalid JSON format in file {file_path}: {str(e)}")
+
     except Exception as e:
-        frappe.error_log(f"Error reading file {file_path}: {str(e)}")
+        frappe.log_error(f"An error occurred while reading the file {file_path}: {str(e)}")
 
     return data

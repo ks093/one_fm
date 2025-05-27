@@ -6,7 +6,7 @@ from one_fm.utils import get_json_file
 
 def get_workflow_json_file(file_name):
     """
-    Get the workflow JSON file.
+    Load JSON data from a workflow file.
     Args:
         file_name (str): The name of the JSON file located in the 'workflow' folder.
     Return:
@@ -17,7 +17,7 @@ def get_workflow_json_file(file_name):
 
 def create_workflow(workflow:dict):
     """
-    Method used to create/update workflow, handling state and action creation.
+    Create or update a Workflow along with its states and actions.
     Args:
         workflow (dict): A dictionary representing the workflow data.
             - workflow_name (str): The name of the workflow.
@@ -45,7 +45,8 @@ def create_workflow(workflow:dict):
     Returns:
         None
     """
-    if not ("states" in workflow and "transitions" in workflow):
+    if not isinstance(workflow, dict) or not ("states" in workflow and "transitions" in workflow):
+        frappe.log_error("Invalid or incomplete workflow definition.")
         return
 
     try:
@@ -62,42 +63,55 @@ def create_workflow(workflow:dict):
             workflow_obj.update(workflow)
             workflow_obj.save()
     except Exception as e:
-        frappe.error_log(f"Failed to create or update workflow '{workflow.get('workflow_name', '')}': {str(e)}")
+        frappe.log_error(
+            title="Workflow Creation Error",
+            message=f"Failed to create or update workflow '{workflow.get('workflow_name', '')}':\n{frappe.get_traceback()}"
+        )
 
 def create_workflow_state(states: list):
     """
-    Method used to creates/update workflow states.
+    Create or update Workflow States.
     Args:
-        states (list): A list of dictionaries representing workflow states.
+        states (list[dict]): A list of state dictionaries with:
             - Each key in the dictionary represents the name of a state.
             - The corresponding value should be another dictionary with the following keys:
                 - `workflow_state_name` (str): The name of the workflow state
                 - `style` (str, optional): The style of the workflow state
                 (e.g., Primary, Info, Success, Warning, Danger and Inverse)
+
+    Returns:
+        None
     """
     for state in states:
         try:
-            if not frappe.db.exists("Workflow State", state['workflow_state_name']):
+            if not frappe.db.exists("Workflow State", state["workflow_state_name"]):
                 frappe.get_doc({"doctype": "Workflow State", **state}).insert(ignore_permissions=True)
             else:
                 workflow_state = frappe.get_doc("Workflow State", state["workflow_state_name"])
                 workflow_state.update(state)
                 workflow_state.save()
         except Exception as e:
-            frappe.error_log(f"Failed to create/update state '{state.get('workflow_state_name')}': {str(e)}")
+            frappe.log_error(
+                title="Workflow State Error",
+                message=f"Failed to create/update state '{state.get('workflow_state_name')}':\n{frappe.get_traceback()}"
+            )
 
 def create_workflow_action_master(action_masters):
     """
-    Creates or updates Workflow Action Master entries.
+    Create or update Workflow Action Masters.
 
     Args:
-        action_masters (list or str): A list of action names or a single action name.
+        action_masters (str or list[str]): Action(s) to be created if not already present.
+
+    Returns:
+        None
     """
     if isinstance(action_masters, str):
         action_masters = [action_masters]
 
     if not isinstance(action_masters, list):
-        frappe.throw("Workflow actions must be a list or string.")
+        frappe.log_error("Workflow actions must be a list or string.")
+        return
 
     # Clean and deduplicate
     action_masters = list(set([a.strip() for a in action_masters if isinstance(a, str) and a.strip()]))
@@ -121,17 +135,31 @@ def create_workflow_action_master(action_masters):
             }).insert(ignore_permissions=True)
 
     except Exception as e:
-        frappe.error_log(f"Error while creating workflow actions: {str(e)}")
+        frappe.log_error(
+            title="Workflow Action Master Error",
+            message=f"Error while creating workflow actions:\n{frappe.get_traceback()}"
+        )
 
 
 def delete_workflow(workflow:dict):
     """
-    Method used to delete workflow
+    Delete a Workflow by name.
     Args:
         workflow (dict): A dictionary representing the workflow data.
             - workflow_name (str): The name of the workflow.
     Returns:
         None
     """
-    if "workflow_name" in workflow and frappe.db.exists("Workflow", workflow["workflow_name"]):
-        frappe.delete_doc("Workflow", workflow["workflow_name"], ignore_permissions=True)
+    name = workflow.get("workflow_name")
+    if not name:
+        frappe.log_error("Missing 'workflow_name' in workflow deletion input.")
+        return
+
+    try:
+        if frappe.db.exists("Workflow", name):
+            frappe.delete_doc("Workflow", name, ignore_permissions=True)
+    except Exception as e:
+        frappe.log_error(
+            title="Workflow Deletion Error",
+            message=f"Failed to delete workflow '{name}':\n{frappe.get_traceback()}"
+        )

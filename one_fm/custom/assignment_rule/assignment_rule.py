@@ -5,18 +5,18 @@ from one_fm.utils import get_json_file
 
 def get_assignment_rule_json_file(file_name):
     """
-    Get the workflow JSON file.
+    Load JSON data from a file in the 'assignment_rule' folder.
     Args:
-        file_name (str): The name of the JSON file located in the 'assignment_rule' folder.
-    Return:
-        dict: The JSON data loaded from the file.
+        file_name (str): The name of the JSON file (must end with '.json').
+    Returns:
+        dict: The parsed JSON data.
     """
     folder = frappe.get_app_path("one_fm", "custom", "assignment_rule")
     return get_json_file(file_name, folder)
 
 def create_assignment_rule(assignment_rule:dict):
     """
-    Create or update an Assignment Rule.
+    Create or update an Assignment Rule based on the provided dictionary.
 
     Args:
         assignment_rule (dict): A dictionary representing the assignment rule data.
@@ -36,11 +36,11 @@ def create_assignment_rule(assignment_rule:dict):
         None
     """
     if not assignment_rule or not isinstance(assignment_rule, dict):
-        frappe.error_log("Invalid assignment rule data.")
+        frappe.log_error("Invalid assignment rule data.")
         return
 
     if "name" not in assignment_rule:
-        frappe.error_log("Missing required field: 'name'.")
+        frappe.log_error("Missing required field: 'name'.")
         return
 
     try:
@@ -51,26 +51,34 @@ def create_assignment_rule(assignment_rule:dict):
             doc.update(assignment_rule)
             doc.save()
     except Exception as e:
-        frappe.error_log(f"Failed to create or update Assignment Rule '{assignment_rule['name']}': {str(e)}")
+        frappe.log_error(
+            title="Assignment Rule Save Error",
+            message=f"Failed to create or update Assignment Rule '{name}': {frappe.get_traceback()}"
+        )
 
 def delete_assignment_rule(assignment_rule:dict):
     """
-    Delete an Assignment Rule.
+    Delete an Assignment Rule based on the 'name' field in the dictionary.
     Args:
-        assignment_rule (dict): A dictionary with at least the 'name' of the rule.
+        assignment_rule (dict): Dictionary containing at least:
+            - name (str): The name of the Assignment Rule to delete.
     Returns:
         None
     """
     if not assignment_rule or not isinstance(assignment_rule, dict):
-        frappe.error_log("Invalid assignment rule data.")
+        frappe.log_error("Invalid assignment rule data.")
+        return
 
     name = assignment_rule.get("name")
     if not name:
-        frappe.error_log("Missing 'name' in assignment rule.")
+        frappe.log_error("Missing 'name' in assignment rule.")
         return
 
     try:
         if frappe.db.exists("Assignment Rule", name):
             frappe.delete_doc("Assignment Rule", name, ignore_permissions=True)
     except Exception as e:
-        frappe.error_log(f"Failed to delete Assignment Rule '{name}': {str(e)}")
+        frappe.log_error(
+            title="Assignment Rule Deletion Error",
+            message=f"Failed to delete Assignment Rule '{name}': {frappe.get_traceback()}"
+        )
