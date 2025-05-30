@@ -549,9 +549,25 @@ function setup_topbar_events(page) {
 //Bind events to Edit options in Roster/Post view
 function bind_events(page) {
 	let wrapper_element = $(get_wrapper_element());
+	// paginateTable(page); // Called within render_roster or here. Ensure it doesn't auto-init pageMe for roster.
+
+	// Conditionally disable pageMe for rosterMonth's #paginate-parent and #myPager
+	if (get_wrapper_element() === '.rosterMonth') {
+		// Explicitly do nothing here for pageMe if it's rosterMonth,
+		// as new controls are now handling pagination for it.
+		// Ensure #myPager is used by new controls, not pageMe.
+	} else {
+		// For other views (e.g., postMonth), if they use pageMe with these selectors,
+		// they might still work, assuming selectors don't clash or are specific.
+		// wrapper_element.find('#paginate-parent').pageMe({ pagerSelector: '#myPager', showPrevNext: false, hidePageNumbers: false, perPage: 9999 });
+	}
+	
+	// The call to paginateTable(page) itself might initialize pageMe.
+	// It's better to control pageMe initialization within paginateTable or remove the call from here if not needed.
+	// For now, we are modifying paginateTable to prevent pageMe for rosterMonth.
 	paginateTable(page);
 
-	wrapper_element.find('#paginate-parent').pageMe({ pagerSelector: '#myPager', showPrevNext: false, hidePageNumbers: false, perPage: 9999 });
+
 	if (["Operations Manager", "Site Supervisor", "Shift Manager", "Shift Supervisor", "Projects Manager"].some(i => frappe.user_roles.includes(i))) {
 		let $rosterMonth = $('.rosterMonth');
 		let $postMonth = $('.postMonth');
@@ -804,7 +820,10 @@ function get_roster_data(page) {
 	}
 	let { start_date, end_date } = page;
 	let { project, site, shift, department, operations_role, designation, relievers } = page.filters;
-	let { limit_start, limit_page_length } = page.pagination;
+	let { limit_start } = page.pagination;
+	let limit_page_length = 10; // Set default page length
+	page.pagination.limit_page_length = limit_page_length;
+
 	if (project || site || shift || department || operations_role || designation || relievers) {
 		$(".clear_roster_filters").removeClass("d-none")
 		$('#cover-spin').show(0);
@@ -1112,6 +1131,45 @@ function render_roster(res, page, isOt) {
 		$rosterMonth.find(`#rowchildtable tbody tr[data-name="${employee}"]`).append(`<td><span>${basic_count}<br>${ot_count}</span></td>`);
 
 	}
+
+	// Add new pagination controls
+	let totalPages = Math.ceil(page.pagination.total / page.pagination.limit_page_length);
+	let currentPage = (page.pagination.limit_start / page.pagination.limit_page_length) + 1;
+
+	let paginationControlsHTML = `<div class="custom-pagination-controls">`;
+	if (currentPage > 1) {
+		paginationControlsHTML += `<button class="btn btn-default btn-sm prev-page">Previous</button>`;
+	}
+	paginationControlsHTML += `<span class="page-info"> Page ${currentPage} of ${totalPages} </span>`;
+	if (currentPage < totalPages) {
+		paginationControlsHTML += `<button class="btn btn-default btn-sm next-page">Next</button>`;
+	}
+	paginationControlsHTML += `</div>`;
+
+	// Assuming #myPager is the container for pagination controls. 
+	// If #myPager is exclusively for pageMe, a new container ID should be used for these controls.
+	// For now, let's use #myPager and ensure pageMe is not initializing on it for roster view.
+	$('#myPager').html(paginationControlsHTML);
+
+	// Event Listeners for new controls - using event delegation on a static parent if #myPager is recreated.
+	// If #myPager itself is static and only its content changes, direct binding is fine too.
+	// Let's assume #myPager's parent is static enough for delegation or #myPager itself is static.
+	// For simplicity, direct binding on #myPager for now, ensure it's not removed/recreated by other scripts.
+	
+	// It's safer to ensure #myPager exists and is dedicated for these new controls.
+	// If roster.html doesn't have a div#myPager outside of where pageMe might operate, it needs one.
+	// For now, we proceed assuming #myPager can be used or replaced.
+
+	$('#myPager').off('click', '.next-page').on('click', '.next-page', function() {
+		page.pagination.limit_start += page.pagination.limit_page_length;
+		get_roster_data(page);
+	});
+
+	$('#myPager').off('click', '.prev-page').on('click', '.prev-page', function() {
+		page.pagination.limit_start -= page.pagination.limit_page_length;
+		get_roster_data(page);
+	});
+
 	bind_events(page);
 }
 
@@ -1962,7 +2020,7 @@ function setup_staff_filters(page) {
 	};
 	let pagination = {
 		limit_start: 0,
-		limit_page_length: 100
+		limit_page_length: 10 // Initialize with default page length
 	};
 	if (page) {
 		page.filters = filters;
@@ -2657,6 +2715,11 @@ function update_roster_view(element, page) {
 	});
 }
 function paginateTable(page) {
+	// Prevent pageMe initialization for rosterMonth context
+	if (get_wrapper_element() === '.rosterMonth') {
+		return; 
+	}
+
 	$.fn.pageMe = function (opts) {
 		var $this = this,
 			defaults = {

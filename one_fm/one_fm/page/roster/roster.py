@@ -188,6 +188,8 @@ def get_roster_view(start_date, end_date, employee_search_id=None, employee_sear
     project=None, site=None, shift=None, department=None, operations_role=None, designation=None,
     relievers=False, limit_start=0, limit_page_length=9999):
     try:
+        limit_start = cint(limit_start)
+        limit_page_length = cint(limit_page_length)
         master_data = {}
         employees = get_employees_for_roster_view(start_date, end_date, employee_search_id, employee_search_name, project, 
             site, shift, department, operations_role, designation, relievers, limit_start, limit_page_length)
@@ -203,7 +205,13 @@ def get_roster_view(start_date, end_date, employee_search_id=None, employee_sear
         # The following section creates a iterable that uses the employee name and id as keys and groups  the  employee data fetched in previous queries
         new_map=CreateMap(start=start_date, end=end_date, employees=employees, filters=str_filters)
         master_data.update({"employees_data": new_map.formated_rs})
-        master_data["employees_data"] = new_map.formated_rs
+        all_employees_processed = new_map.formated_rs.copy()
+        master_data["total"] = len(all_employees_processed)
+
+        employee_items = list(all_employees_processed.items())
+        paginated_employee_items = employee_items[limit_start : limit_start + limit_page_length]
+        master_data["employees_data"] = dict(paginated_employee_items)
+
         post_map_filters = {}
         if project:
             post_map_filters.update({"project": project})
