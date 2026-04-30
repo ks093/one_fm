@@ -20,6 +20,12 @@ Before you install this app, ensure that the following apps and their respective
 - Frappe Framework: 15 (version-15)
 - ERPNext: v15 (version-15)
 - Helpdesk: v15 or main (main)
+- Frappe HR: v15 (version-15)
+- One Fm Password Management: v0.0.1 (master)
+- Wiki: v15 (master-15)
+- Payments: v15 (version-16)
+- Twilio Integration: (master)
+
 #### Requirements
 
 - Python 3.10 or above
